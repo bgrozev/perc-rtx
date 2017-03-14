@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type='text/xsl' href='rfc2629.xslt' ?>
+
+<!DOCTYPE rfc SYSTEM "rfc2629.dtd">
+
+<rfc category='std' ipr='trust200902'
+     docName='draft-ietf-ivov-double-rtx-01'>
+
+<?rfc toc='yes' ?>
+<?rfc symrefs='yes' ?>
+<?rfc sortrefs='yes'?>
+<?rfc iprnotified='no' ?>
+<?rfc strict='yes' ?>
+<?rfc compact='yes' ?>
+  <front>
+
+    <title abbrev='RTX double'>
+        Using RTX with Privacy Enhanced RTP Conferencing (PERC)
+    </title>
+    <author initials='E.' surname='Ivov'
+            fullname='Emil Ivov'>
+      <organization abbrev='Atlassian'>Atlassian</organization>
+      <address>
+        <postal>
+          <street>303 Colorado Street, #1600</street>
+          <city>Austin</city>
+          <code>78701</code>
+          <country>USA</country>
+        </postal>
+        <phone>+1-512-640-3000</phone>
+        <email>eivov@atlassian.com</email>
+      </address>
+    </author>
+    <author initials='B.' surname='Grozev'
+            fullname='Boris Grozev'>
+      <organization abbrev='Atlassian'>Atlassian</organization>
+      <address>
+        <postal>
+          <street>303 Colorado Street, #1600</street>
+          <city>Austin</city>
+          <code>78701</code>
+          <country>USA</country>
+        </postal>
+        <phone>+1-512-640-3000</phone>
+        <email>eivov@atlassian.com</email>
+      </address>
+    </author>
+    <date />
+    <abstract>
+      <t>
+        This document discusses the use of the RTX format for RTP packet
+        retransmission in the context of a PERC (Privacy Enhanced RTP
+        Conferenceing) conference.
+      </t>
+    </abstract>
+  </front>
+  <middle>
+    <section title='Introduction'>
+      <t>
+        In multi-endpoint RTP conferences it is desired for middleboxes (e.g.
+        Selecting Forwarding Units (SFUs), or in the case of PERC Media
+        Distributors (MDs)) to terminate RTP packet retransmission, because
+        this can reduce the retransmission delay and the unnecessary
+        retransmission of packets.  In the context of PERC, if RTX is handled
+        as a regular media stream, then an MD can not terminate packet
+        retransmission.
+      </t>
+    </section>
+    <section title="Terminology">
+      <t>
+        The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL
+        NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and
+        "OPTIONAL" in this document are to be interpreted as described
+        in <xref target="RFC2119"/>.
+      </t>
+    </section>
+    <section title='Terminating RTX'>
+      <t>
+        The RTX format (RFC 4588) uses the first two bytes of the RTP payload
+        (the Original Sequence Number field (OSN)) to transport the RTP
+        sequence number of the retransmitted packet.
+      </t>
+      <t>
+        If the procedure used for regular media streams is also used for RTX,
+        the MD does not have access to the OSN field, because it is E2E
+        encrypted as part of the RTP payload, and this prevents it from
+        terminating retransmissions.
+      </t>
+      <t>
+        In the context of PERC, RTX should be performed only HBH. That is, the
+        payload of the RTX packet must be encrypted with the HBH context, but
+        not with the E2E context.
+      </t>
+    </section>
+    <section title='RTP Padding'>
+      <t>
+        RFC3550 allows an RTP packet to contain only padding, and no payload.
+        The number of padding bytes is contained in the last byte of the
+        payload, and it is encrypted by SRTP.
+      </t>
+      <t>
+        In the context of PERC, an MD does not have access to the padding
+        length field of an RTX packet, and therefore it can not determine
+        whether the packet contains non-padding payload or not.
+      </t>
+      <t>
+        RTX packets with padding only are currently used by some bandwidth
+        estimation algorithms in order to "ramp-up". Since an MD might want
+        to terminate bandwidth estimation, there is a need for a new way for
+        the MD to recognize packets with no payload (e.g padding-only).
+      </t>
+      <t>
+        This can be accomplished by using a single "padding-only" bit in
+        an RTP header extension. We propose to transport this bit as part
+        of the framemarking header extension, because it is already used
+        by PERC and adding a separate extension will consume one of a 
+        limited set of available extension IDs. We propose to use the
+        first bit of the unused bits in the format for non-scalable streams,
+        which is marked as the P bit in the diagram below.
+      </t>
+      <t>
+        <figure title="Extension Format" anchor="fig-extension-format">
+          <artwork>
+            <![CDATA[
+  0                   1
+  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |  ID=? |  L=0  |S|E|I|D|P 0 0 0|
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+            ]]>
+          </artwork>
+        </figure>  
+      </t>
+
+    </section>
+    <section title='Security Considerations'>
+      <t>
+      </t>
+    </section>
+    <section title='Acknowledgements'>
+     <t>   
+     </t>
+    </section>
+  </middle>
+  <back>
+    <references title='Normative References'>
+      <?rfc include="reference.RFC.2119"?>
+    </references>
+    <references title='Informative References'>
+      <?rfc include="reference.RFC.3550"?>
+      <?rfc include="reference.RFC.4588"?>
+      <?rfc include="reference.RFC.7667"?>
+    </references>
+  </back>
+</rfc>
