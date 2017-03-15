@@ -151,7 +151,7 @@
         The use of a single "padding-only" bit in any new or existing RTP 
         header extension is ony way to achieve this. PERC MDs are already
         likely to rely on the framemarking header extension 
-        <xref target='ietf-avtext-framemarking'/> and we propose 
+        <xref target='I-D.ietf-avtext-framemarking'/> and we propose 
         transporting this bit there. We propose to use the first bit of 
         the unused bits in the format for non-scalable streams,
         which is marked as the P bit in the diagram below.
