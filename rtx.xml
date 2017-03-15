@@ -17,8 +17,8 @@
     <title abbrev='RTX double'>
         Using RTX with Privacy Enhanced RTP Conferencing (PERC)
     </title>
-    <author initials='E.' surname='Ivov'
-            fullname='Emil Ivov'>
+    <author initials='B.' surname='Grozev'
+            fullname='Boris Grozev'>
       <organization abbrev='Atlassian'>Atlassian</organization>
       <address>
         <postal>
@@ -31,8 +31,8 @@
         <email>eivov@atlassian.com</email>
       </address>
     </author>
-    <author initials='B.' surname='Grozev'
-            fullname='Boris Grozev'>
+    <author initials='E.' surname='Ivov'
+            fullname='Emil Ivov'>
       <organization abbrev='Atlassian'>Atlassian</organization>
       <address>
         <postal>
@@ -48,7 +48,7 @@
     <date />
     <abstract>
       <t>
-        This document discusses the use of the RTX format for RTP packet
+        This document describes the use of the RTX format for RTP packet
         retransmission in the context of a PERC (Privacy Enhanced RTP
         Conferenceing) conference.
       </t>
@@ -105,17 +105,39 @@
       </t>
       <t>
         RTX packets with padding only are currently used by some bandwidth
-        estimation algorithms in order to "ramp-up". Since an MD might want
-        to terminate bandwidth estimation, there is a need for a new way for
-        the MD to recognize packets with no payload (e.g padding-only).
+        estimation algorithms when probing for additional bandwidth 
+        availability. Bandwidth estimations have a strictly hop-by-hop 
+        context, so MDs therefore usually terminate them by recognizing and 
+        dropping all incoming probe packets. They then generate new ones 
+        for their own estimations. 
+      </t>
+      <t>           
+        In order to recognize an incoming packet as a probe-only one, an MD
+        needs to inspect its last octet and compare it to the overall length
+        of the payload. Yet, in a PERC scenario this last octet is protected 
+        by PERC's end-to-end encryption and will hence be unreadable to the 
+        MD. The MD will therefore have no choice but to treat this as a regular
+        RTX packet: replace its sequence number, payload type, and SSRC and 
+        forward it to receivers that would likely fail in unpredictable ways 
+        (e.g., either failing SRTP authentication or maybe even feeding garbage
+        data to their decoders).
       </t>
       <t>
-        This can be accomplished by using a single "padding-only" bit in
-        an RTP header extension. We propose to transport this bit as part
-        of the framemarking header extension, because it is already used
-        by PERC and adding a separate extension will consume one of a 
-        limited set of available extension IDs. We propose to use the
-        first bit of the unused bits in the format for non-scalable streams,
+        A similar problem also exists for probe packets the the MD generates
+        and that receivers have no way to reliably recognize. 
+      </t>
+      <t>        
+        In order for MDs and receivers to properly terminate bandwidth 
+        estimation, it is therefore necessary for an MD to reliably recognize 
+        such padding-only packets.
+      </t>
+      <t>
+        The use of a single "padding-only" bit in any new or existing RTP 
+        header extension is ony way to achieve this. PERC MDs are already
+        likely to rely on the framemarking header extension 
+        <xref target='ietf-avtext-framemarking'/> and we propose 
+        transporting this bit there. We propose to use the first bit of 
+        the unused bits in the format for non-scalable streams,
         which is marked as the P bit in the diagram below.
       </t>
       <t>
@@ -150,6 +172,37 @@
       <?rfc include="reference.RFC.3550"?>
       <?rfc include="reference.RFC.4588"?>
       <?rfc include="reference.RFC.7667"?>
+      <reference anchor='I-D.ietf-avtext-framemarking'>
+        <front>
+          <title>Frame Marking RTP Header Extension</title>
+          <author initials='E' surname='Berger' fullname='Espen Berger'>
+            <organization />
+          </author>
+          <author initials='S' surname='Nandakumar' fullname='Suhas Nandakumar'>
+            <organization />
+          </author>
+          <author initials='M' surname='Zanaty' fullname='Mo Zanaty'>
+             <organization />
+          </author>
+          <date month='March' day='13' year='2017' />
+          <abstract>
+            <t>
+              This document describes a Frame Marking RTP header extension used to
+              convey information about video frames that is critical for error
+              recovery and packet forwarding in RTP middleboxes or network nodes.
+              It is most useful when media is encrypted, and essential when the
+              middlebox or node has no access to the media decryption keys.  It is
+              also useful for codec-agnostic processing of encrypted or unencrypted
+              media, while it also supports extensions for codec-specific
+              information.
+            </t>
+          </abstract>
+        </front>
+        <seriesInfo name='Internet-Draft' value='draft-ietf-avtext-framemarking-04' />
+        <format type='HTML'
+                target='https://tools.ietf.org/html/draft-ietf-avtext-framemarking-04' />
+      </reference>
+
     </references>
   </back>
 </rfc>
