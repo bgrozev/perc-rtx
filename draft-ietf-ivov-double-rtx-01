@@ -77,7 +77,7 @@ Table of Contents
    Selecting Forwarding Units (SFUs), or in the case of PERC Media
    Distributors (MDs)) to terminate RTP packet retransmission, because
    this can reduce the retransmission delay and the unnecessary
-   retransmission of packets.  In the context of PERC, if RTX is handled
+   retransmission of packets. In the context of PERC, if RTX is handled
    as a regular media stream, then an MD can not terminate packet
    retransmission.
 
@@ -89,14 +89,31 @@ Table of Contents
 
 3.  Terminating RTX
 
-   The RTX format (RFC 4588) uses the first two bytes of the RTP payload
-   (the Original Sequence Number field (OSN)) to transport the RTP
-   sequence number of the retransmitted packet.
+   By terminating RTX by a middlebox we mean that the middlebox interprets
+   incoming RTX packets and generates RTX packets as necessary (e.g. in
+   response to RTCP NACK packets) to repair streams sent by the middlebox to
+   receivers.
 
-   If the procedure used for regular media streams is also used for RTX,
-   the MD does not have access to the OSN field, because it is E2E
-   encrypted as part of the RTP payload, and this prevents it from
-   terminating retransmissions.
+   Terminating RTX is desirable because it allows for repair with lower
+   latency, and, in a multi-party scenario, avoids the unnecessary
+   transmission of repair packets.
+
+   The RTX format (RFC 4588) uses a separate SSRC and payload type than the
+   regular media streams, and as such it has a different RTP sequence number
+   space. It uses the first two bytes of the RTP payload (the Original Sequence
+   Number field (OSN)) to transport the RTP sequence number of the
+   retransmitted packet.
+
+   When used together with SRTP (RFC 3711), RTX is applied before SRTP. That is, 
+   when a sender wishes to retransmit a media packet, it first takes the
+   unencrypted packet (usually from a cache), applies the RTX transformation
+   (appends the OSN field and updates the SSRC, PT, and sequence number fields)
+   and then applies SRTP.
+
+   With PERC, if the procedure used for regular media streams is also used for
+   RTX, the MD does not have access to the OSN field, because it is E2E
+   encrypted as part of the RTP payload, and this prevents it from terminating
+   retransmissions.
 
    In the context of PERC, RTX should be performed only HBH.  That is,
    the payload of the RTX packet must be encrypted with the HBH context,
@@ -115,7 +132,7 @@ Internet-Draft                 RTX double                     March 2017
 
 
    2.  Applies the RTX transformation (replaces the SSRC, payload type
-       and sequence number, and inserts the OSN field in the payload.
+       and sequence number, and inserts the OSN field in the payload).
 
    3.  Performs the HBH SRTP transformation.
 
