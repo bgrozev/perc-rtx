@@ -76,45 +76,263 @@
     </section>
     <section title='Terminating RTX'>
       <t>
-        The RTX format (RFC 4588) uses the first two bytes of the RTP payload
-        (the Original Sequence Number field (OSN)) to transport the RTP
-        sequence number of the retransmitted packet.
+        The RTX format <xref target='RFC4588'/> uses the first two bytes of the 
+        RTP  payload (the Original Sequence Number field (OSN)) to transport 
+        the RTP sequence number of the retransmitted packet.
       </t>
       <t>
-        TODO: ADD A PARAGRAPH ON HOW RTX GENERALLY WORKS WITH SRTP
-      </t>
-      <t>
-        If the procedure used for regular media streams is also used for RTX,
-        the Media Distributor (MD) would not have access to the OSN field, 
-        because it is E2E encrypted as part of the RTP payload, and this prevents
-        it from terminating retransmissions.
-      </t>
-      <t>
-        For this reason, in the context of PERC, RTX needs to operate as a 
-        Hop By Hop (HBH) mechanism. In other words, endpoint implementations
-        will cache E2E encrypted packets before they undergo HBH encryption and
-        treat that cache as the source of the payload they need to retransmit 
-        when necessary. Once an RTX packet is constructed out of an E2E 
-        encrypted packet, it will undergo HBH encryption (just as it would with standard SRTP [RFC3711] implementations).
-      </t>
-      <t>
-           Specifically, when an entity retransmits a packet using RTX it:
-           <list style="numbers">
-             <t>
-               Takes an E2E encrypted packet to be retransmitted.
-             </t>     
-             <t>
-               Applies the RTX transformation (replaces the SSRC, payload
-               type and sequence number, and inserts the OSN field in the
-               payload.
-             </t>
-             <t>
-               Performs the HBH SRTP transformation.
-             </t>
-           </list>
+        <figure title="RTX with and SRTP Double in a Media Distributor" 
+                anchor="fig-rtx-md">
+          <artwork>
+            <![CDATA[
+ +-----------------+                      +---------+    +------+
+ |  MD Processing  |--------------------->|   HBH   |--->| Wire |
+ |  Packet Output  |                 +--->| Protect |    |      |
+ |  (Unprotected)  |                 |    +---------+    +------+
+ +-----------------+                 |    
+              |                      |
+              |                      |
+              |  +-----------+    +-----+
+              +->| Pkt Cache |--->| RTX |
+                 +-----------+    +-----+ 
+            ]]>
+          </artwork>
+        </figure>  
       </t>
     </section>
+    <section title='RTX and SRTP' anchor="sec-rtx-srtp">
+      <t>
+        When using RTX  and SRTP <xref target='RFC3711'/> together, endpoints 
+        operate in roughly the following way: 
+        <list style="format o ">
+          <t> 
+            packets that come out of RTP packetization, go through SRTP 
+            processing and are then sent on the wire
+          </t>
+          <t> 
+            a packet cache stores a copy of the raw (i.e. unencrypted) version 
+            of some (or all) packets. When a retransmission is necessary for a 
+            certain packet, endpoints take it out of the cache and encapsulate it
+            in an RTX packet. Next, they pass the new RTX packet through SRTP 
+            processing and then send it over the wire 
+            <xref target='fig-rtx-srtp'/>.
+          </t> 
+        </list>
+      </t>
+      <t>
+        <figure title="SRTP and RTX: regular operation" anchor="fig-rtx-srtp">
+          <artwork>
+            <![CDATA[
+ +----------------+                      +------+    +------+
+ | RTP Packetizer |--------------------->|      |    |      |
+ +----------------+                      | SRTP |--->| Wire |
+  |                                 +--->|      |    |      |
+  |                                 |    +------+    +------+
+  |                                 |
+  |    +--------------+    +-----+  |
+  +--->| Packet Cache |--->| RTX |--+
+       +--------------+    +-----+ 
+            ]]>
+          </artwork>
+        </figure>  
+      </t>
+      <t>
+        One of the ideas behind PERC and more specifically the SRTP Double 
+        Encryption Procedures <xref target='I-D.ietf-perc-double'/> is to 
+        make it a transparent, drop-in replacement to SRTP processing. Regular 
+        RTP operation with double looks roughly like 
+        <xref target="fig-srtp-double"/>:
+      </t>
+      <t>
+        <figure title="SRTP and RTX: regular operation" 
+                anchor="fig-srtp-double">
+          <artwork>
+            <![CDATA[
+                  +---------------------------+
+                  |           SRTP            |
+ +------------+   | +---------+   +---------+ |    +------+
+ |    RTP     |-->| |   E2E   |-->|   HBH   | |--->| Wire |
+ | Packetizer |   | | Protect |   | Protect | |    |      |
+ +------------+   | +---------+   +---------+ |    +------+
+                  +---------------------------+
+            ]]>
+          </artwork>
+        </figure>  
+      </t>
+      <t>
+        Once RTX comes into play however, viewing all SRTP operation as a single
+        monolithic module becomes a problem. If a PERC endpoint using Double 
+        SRTP is to operate as regular SRTP endpoints (that is, it caches clear 
+        RTP packets, which it uses to generate RTX packets, that then 
+        undergo all SRTP-related processing) RTX packets would end up being 
+        end-to-end (E2E) encrypted. Media Distributor (MD) would then not have 
+        access to the RTX OSN field. This would effectively prevent the 
+        MD from terminating retransmissions.
+      </t>
+    </section>
+    <section title='RTX and SRTP Double'>
+      <t>
+        For the reasons outlined in <xref target="sec-rtx-srtp"/> above, SRTP 
+        Double, requires RTX to operate as a Hop By Hop (HBH) mechanism. In 
+        order to achieve this, RTX implementations in endpoints and MDs will 
+        cache E2E encrypted packets before they undergo HBH encryption and
+        treat that E2E protected cache as the source of the payload they need to 
+        retransmit when necessary. Once an RTX packet is constructed out of an 
+        E2E encrypted packet, it will undergo HBH encryption (just as it would 
+        with standard SRTP <xref target='RFC3711'/> implementations).
+      </t>
+      <t>
+        Specifically, when an SRTP Double entity (be it an endpoint or an MD)
+        retransmits a packet using RTX it:
+        <list style="numbers">
+          <t>
+            Takes an E2E encrypted packet to be retransmitted.
+          </t>     
+          <t>
+           Applies the RTX transformation (replaces the SSRC, payload
+           type and sequence number, and inserts the OSN field in the
+           payload.
+          </t>
+          <t>
+           Performs the HBH SRTP transformation.
+          </t>
+        </list>
+      </t>
+      <t>
+        For an SRTP Double endpointthis transformation would roughly look like
+        this.
+      </t>
+      <t>
+        <figure title="RTX with and SRTP Double in an Endpoint" 
+                anchor="fig-rtx-perc">
+          <artwork>
+            <![CDATA[
+ +------------+   +---------+                 +---------+    +------+
+ |    RTP     |-->|   E2E   |---------------->|   HBH   |--->| Wire |
+ | Packetizer |   | Protect |             +-->| Protect |    |      |
+ +------------+   +---------+             |   +---------+    +------+
+                    |                     |
+                    |                     |
+                    |  +-----------+   +-----+
+                    +->| Pkt Cache |-->| RTX |
+                       +-----------+   +-----+ 
+            ]]>
+          </artwork>
+        </figure>  
+      </t>
+      <t>
+        For an MD, on the other hand, PERC operation remains virtually unchanged
+        as compared to regular SRTP processing. See 
+        <xref target="fig-rtx-perc-md"/>.
+      </t>
+      <t>
+        <figure title="RTX with and SRTP Double in a Media Distributor" 
+                anchor="fig-rtx-perc-md">
+          <artwork>
+            <![CDATA[
+ +-----------------+                      +---------+    +------+
+ |  MD Processing  |--------------------->|   HBH   |--->| Wire |
+ |  Packet Output  |                 +--->| Protect |    |      |
+ | (E2E Protected) |                 |    +---------+    +------+
+ +-----------------+                 |    
+              |                      |
+              |                      |
+              |  +-----------+    +-----+
+              +->| Pkt Cache |--->| RTX |
+                 +-----------+    +-----+ 
+            ]]>
+          </artwork>
+        </figure>  
+      </t>
+    </section>
+    <section title='Security Considerations'>
+      <t>
+      </t>
+    </section>
+    <section title='Acknowledgements'>
+     <t>   
+     </t>
+    </section>
+  </middle>
+  <back>
+    <references title='Normative References'>
+      <?rfc include="reference.RFC.2119"?>
+    </references>
+    <references title='Informative References'>
+      <?rfc include="reference.RFC.3550"?>
+      <?rfc include="reference.RFC.4588"?>
+      <?rfc include="reference.RFC.7667"?>
+      <?rfc include="reference.RFC.3711"?>
+      <reference anchor='I-D.ietf-perc-double'>
+        <front>
+          <title>Frame Marking RTP Header Extension</title>
+          <author initials='C' surname='Jennings' fullname='Cullen Jennings'>
+            <organization />
+          </author>
+          <author initials='P' surname='Jones' fullname='Paul Jones'>
+            <organization />
+          </author>
+          <author initials='A' surname='Roach' fullname='Adam Roach'>
+             <organization />
+          </author>
+          <date month='June' day='29' year='2017' />
+          <abstract>
+            <t>
+              In some conferencing scenarios, it is desirable for an intermediary
+              to be able to manipulate some RTP parameters, while still providing
+              strong end-to-end security guarantees.  This document defines SRTP
+              procedures that use two separate but related cryptographic operations
+              to provide hop-by-hop and end-to-end security guarantees.  Both the
+              end-to-end and hop-by-hop cryptographic algorithms can utilize an
+              authenticated encryption with associated data scheme or take
+              advantage of future SRTP transforms with different properties.
+            </t>
+          </abstract>
+        </front>
+        <seriesInfo name='Internet-Draft' value='draft-ietf-perc-double-05' />
+        <format type='HTML'
+                target='https://tools.ietf.org/html/draft-ietf-perc-double-05' />
+      </reference>
+      <reference anchor='I-D.ietf-avtext-framemarking'>
+        <front>
+          <title>Frame Marking RTP Header Extension</title>
+          <author initials='E' surname='Berger' fullname='Espen Berger'>
+            <organization />
+          </author>
+          <author initials='S' surname='Nandakumar' fullname='Suhas Nandakumar'>
+            <organization />
+          </author>
+          <author initials='M' surname='Zanaty' fullname='Mo Zanaty'>
+             <organization />
+          </author>
+          <date month='March' day='13' year='2017' />
+          <abstract>
+            <t>
+              This document describes a Frame Marking RTP header extension used to
+              convey information about video frames that is critical for error
+              recovery and packet forwarding in RTP middleboxes or network nodes.
+              It is most useful when media is encrypted, and essential when the
+              middlebox or node has no access to the media decryption keys.  It is
+              also useful for codec-agnostic processing of encrypted or unencrypted
+              media, while it also supports extensions for codec-specific
+              information.
+            </t>
+          </abstract>
+        </front>
+        <seriesInfo name='Internet-Draft' value='draft-ietf-avtext-framemarking-04' />
+        <format type='HTML'
+                target='https://tools.ietf.org/html/draft-ietf-avtext-framemarking-04' />
+      </reference>
+    </references>
     <section title='RTP Padding'>
+      <t>
+        Originally this document also discussed potential PERC-related problems
+        when RTX is also used for probing in the context of bandwidth 
+        estimation. While the practice is somewhat widespred, from an IETF 
+        perspective it is not considered as a "clean" approach to probing, which 
+        is why the document no longer attempts to solve its PERC-related issues.
+        The following section is hence only kept for historical purposes.
+      </t>
       <t>
         RFC3550 allows an RTP packet to contain only padding, and no payload.
         The number of padding bytes is contained in the last byte of the
@@ -177,54 +395,5 @@
       </t>
 
     </section>
-    <section title='Security Considerations'>
-      <t>
-      </t>
-    </section>
-    <section title='Acknowledgements'>
-     <t>   
-     </t>
-    </section>
-  </middle>
-  <back>
-    <references title='Normative References'>
-      <?rfc include="reference.RFC.2119"?>
-    </references>
-    <references title='Informative References'>
-      <?rfc include="reference.RFC.3550"?>
-      <?rfc include="reference.RFC.4588"?>
-      <?rfc include="reference.RFC.7667"?>
-      <reference anchor='I-D.ietf-avtext-framemarking'>
-        <front>
-          <title>Frame Marking RTP Header Extension</title>
-          <author initials='E' surname='Berger' fullname='Espen Berger'>
-            <organization />
-          </author>
-          <author initials='S' surname='Nandakumar' fullname='Suhas Nandakumar'>
-            <organization />
-          </author>
-          <author initials='M' surname='Zanaty' fullname='Mo Zanaty'>
-             <organization />
-          </author>
-          <date month='March' day='13' year='2017' />
-          <abstract>
-            <t>
-              This document describes a Frame Marking RTP header extension used to
-              convey information about video frames that is critical for error
-              recovery and packet forwarding in RTP middleboxes or network nodes.
-              It is most useful when media is encrypted, and essential when the
-              middlebox or node has no access to the media decryption keys.  It is
-              also useful for codec-agnostic processing of encrypted or unencrypted
-              media, while it also supports extensions for codec-specific
-              information.
-            </t>
-          </abstract>
-        </front>
-        <seriesInfo name='Internet-Draft' value='draft-ietf-avtext-framemarking-04' />
-        <format type='HTML'
-                target='https://tools.ietf.org/html/draft-ietf-avtext-framemarking-04' />
-      </reference>
-
-    </references>
   </back>
 </rfc>
