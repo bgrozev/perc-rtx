@@ -76,11 +76,22 @@
     </section>
     <section title='Terminating RTX'>
       <t>
-        The RTX format <xref target='RFC4588'/> uses the first two bytes of the 
-        RTP  payload (the Original Sequence Number field (OSN)) to transport 
-        the RTP sequence number of the retransmitted packet.
+        By terminating RTX by an MD we mean that the MD interprets incoming
+        RTX packets, and also generates RTX packets as necessary (e.g. in response to
+        RTCP NACK packets) to repair streams sent by the MD to receivers.
       </t>
       <t>
+        Terminating RTX is desirable because it allows for repair with lower
+        latency, and, in a multi-party scenario, avoids the unnecessary
+        transmission of repair packets.
+      </t>
+      <t>
+        The RTX format (RFC 4588) uses a separate SSRC and payload type than
+        the regular media streams, and because of this it has a different RTP
+        sequence number space. It uses the first two bytes of the RTP payload
+        (the Original Sequence Number field (OSN)) to transport the RTP
+        sequence number of the retransmitted packet.
+      </t>
         <figure title="RTX with and SRTP Double in a Media Distributor" 
                 anchor="fig-rtx-md">
           <artwork>
@@ -98,11 +109,10 @@
             ]]>
           </artwork>
         </figure>  
-      </t>
     </section>
     <section title='RTX and SRTP' anchor="sec-rtx-srtp">
       <t>
-        When using RTX  and SRTP <xref target='RFC3711'/> together, endpoints 
+        When using RTX and SRTP <xref target='RFC3711'/> together, endpoints 
         operate in roughly the following way: 
         <list style="format o ">
           <t> 
@@ -160,9 +170,9 @@
         </figure>  
       </t>
       <t>
-        Once RTX comes into play however, viewing all SRTP operation as a single
+        Once RTX comes into play however, viewing all SRTP operations as a single
         monolithic module becomes a problem. If a PERC endpoint using Double 
-        SRTP is to operate as regular SRTP endpoints (that is, it caches clear 
+        SRTP to operate as regular SRTP endpoints (that is, it caches clear 
         RTP packets, which it uses to generate RTX packets, that then 
         undergo all SRTP-related processing) RTX packets would end up being 
         end-to-end (E2E) encrypted. Media Distributor (MD) would then not have 
@@ -191,7 +201,7 @@
           <t>
            Applies the RTX transformation (replaces the SSRC, payload
            type and sequence number, and inserts the OSN field in the
-           payload.
+           payload).
           </t>
           <t>
            Performs the HBH SRTP transformation.
