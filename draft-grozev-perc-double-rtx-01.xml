@@ -90,9 +90,10 @@
         the regular media streams, and because of this it has a different RTP
         sequence number space. It uses the first two bytes of the RTP payload
         (the Original Sequence Number field (OSN)) to transport the RTP
-        sequence number of the retransmitted packet.
+        sequence number of the retransmitted packet. See 
+        <xref target="fig-rtx-md"/>.
       </t>
-        <figure title="RTX with and SRTP Double in a Media Distributor" 
+        <figure title="RTX and SRTP Double in a Media Distributor" 
                 anchor="fig-rtx-md">
           <artwork>
             <![CDATA[
