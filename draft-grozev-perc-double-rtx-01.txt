@@ -104,7 +104,7 @@ Table of Contents
    the regular media streams, and because of this it has a different RTP
    sequence number space.  It uses the first two bytes of the RTP
    payload (the Original Sequence Number field (OSN)) to transport the
-   RTP sequence number of the retransmitted packet.
+   RTP sequence number of the retransmitted packet.  See Figure 1.
 
 
 
@@ -126,7 +126,7 @@ Internet-Draft                 RTX double                      July 2017
                     +-----------+    +-----+
 
 
-         Figure 1: RTX with and SRTP Double in a Media Distributor
+           Figure 1: RTX and SRTP Double in a Media Distributor
 
 4.  RTX and SRTP
 
