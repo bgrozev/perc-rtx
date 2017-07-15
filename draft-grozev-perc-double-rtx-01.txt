@@ -5,7 +5,7 @@
 Network Working Group                                          B. Grozev
 Internet-Draft                                                   E. Ivov
 Intended status: Standards Track                               Atlassian
-Expires: January 15, 2018                                  July 14, 2017
+Expires: January 16, 2018                                  July 15, 2017
 
 
         Using RTX with Privacy Enhanced RTP Conferencing (PERC)
@@ -32,7 +32,7 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on January 15, 2018.
+   This Internet-Draft will expire on January 16, 2018.
 
 Copyright Notice
 
@@ -53,7 +53,7 @@ Copyright Notice
 
 
 
-Grozev & Ivov           Expires January 15, 2018                [Page 1]
+Grozev & Ivov           Expires January 16, 2018                [Page 1]
 
 Internet-Draft                 RTX double                      July 2017
 
@@ -63,13 +63,15 @@ Table of Contents
    1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . .   2
    2.  Terminology . . . . . . . . . . . . . . . . . . . . . . . . .   2
    3.  Terminating RTX . . . . . . . . . . . . . . . . . . . . . . .   2
-   4.  RTP Padding . . . . . . . . . . . . . . . . . . . . . . . . .   3
-   5.  Security Considerations . . . . . . . . . . . . . . . . . . .   4
-   6.  Acknowledgements  . . . . . . . . . . . . . . . . . . . . . .   4
-   7.  References  . . . . . . . . . . . . . . . . . . . . . . . . .   4
-     7.1.  Normative References  . . . . . . . . . . . . . . . . . .   4
-     7.2.  Informative References  . . . . . . . . . . . . . . . . .   4
-   Authors' Addresses  . . . . . . . . . . . . . . . . . . . . . . .   4
+   4.  RTX and SRTP  . . . . . . . . . . . . . . . . . . . . . . . .   3
+   5.  RTX and SRTP Double . . . . . . . . . . . . . . . . . . . . .   4
+   6.  Security Considerations . . . . . . . . . . . . . . . . . . .   5
+   7.  Acknowledgements  . . . . . . . . . . . . . . . . . . . . . .   5
+   8.  References  . . . . . . . . . . . . . . . . . . . . . . . . .   5
+     8.1.  Normative References  . . . . . . . . . . . . . . . . . .   5
+     8.2.  Informative References  . . . . . . . . . . . . . . . . .   6
+   Appendix A.  RTP Padding  . . . . . . . . . . . . . . . . . . . .   6
+   Authors' Addresses  . . . . . . . . . . . . . . . . . . . . . . .   7
 
 1.  Introduction
 
@@ -89,37 +91,237 @@ Table of Contents
 
 3.  Terminating RTX
 
-   The RTX format (RFC 4588) uses the first two bytes of the RTP payload
-   (the Original Sequence Number field (OSN)) to transport the RTP
-   sequence number of the retransmitted packet.
+   By terminating RTX by an MD we mean that the MD interprets incoming
+   RTX packets, and also generates RTX packets as necessary (e.g. in
+   response to RTCP NACK packets) to repair streams sent by the MD to
+   receivers.
 
-   If the procedure used for regular media streams is also used for RTX,
-   the MD does not have access to the OSN field, because it is E2E
-   encrypted as part of the RTP payload, and this prevents it from
-   terminating retransmissions.
+   Terminating RTX is desirable because it allows for repair with lower
+   latency, and, in a multi-party scenario, avoids the unnecessary
+   transmission of repair packets.
 
-   In the context of PERC, RTX should be performed only HBH.  That is,
-   the payload of the RTX packet must be encrypted with the HBH context,
-   but not with the E2E context.
-
-   Specifically, when an entity retransmits a packet using RTX it:
-
-   1.  Takes an E2E encrypted packet to be retransmitted.
+   The RTX format (RFC 4588) uses a separate SSRC and payload type than
+   the regular media streams, and because of this it has a different RTP
+   sequence number space.  It uses the first two bytes of the RTP
+   payload (the Original Sequence Number field (OSN)) to transport the
+   RTP sequence number of the retransmitted packet.
 
 
 
 
-Grozev & Ivov           Expires January 15, 2018                [Page 2]
+Grozev & Ivov           Expires January 16, 2018                [Page 2]
 
 Internet-Draft                 RTX double                      July 2017
 
 
+    +-----------------+                      +---------+    +------+
+    |  MD Processing  |--------------------->|   HBH   |--->| Wire |
+    |  Packet Output  |                 +--->| Protect |    |      |
+    |  (Unprotected)  |                 |    +---------+    +------+
+    +-----------------+                 |
+                 |                      |
+                 |                      |
+                 |  +-----------+    +-----+
+                 +->| Pkt Cache |--->| RTX |
+                    +-----------+    +-----+
+
+
+         Figure 1: RTX with and SRTP Double in a Media Distributor
+
+4.  RTX and SRTP
+
+   When using RTX and SRTP [RFC3711] together, endpoints operate in
+   roughly the following way:
+
+   o packets that come out of RTP packetization, go through SRTP
+     processing and are then sent on the wire
+
+   o a packet cache stores a copy of the raw (i.e. unencrypted) version
+     of some (or all) packets.  When a retransmission is necessary for a
+     certain packet, endpoints take it out of the cache and encapsulate
+     it in an RTX packet.  Next, they pass the new RTX packet through
+     SRTP processing and then send it over the wire Figure 2.
+
+
+    +----------------+                      +------+    +------+
+    | RTP Packetizer |--------------------->|      |    |      |
+    +----------------+                      | SRTP |--->| Wire |
+     |                                 +--->|      |    |      |
+     |                                 |    +------+    +------+
+     |                                 |
+     |    +--------------+    +-----+  |
+     +--->| Packet Cache |--->| RTX |--+
+          +--------------+    +-----+
+
+
+                 Figure 2: SRTP and RTX: regular operation
+
+   One of the ideas behind PERC and more specifically the SRTP Double
+   Encryption Procedures [I-D.ietf-perc-double] is to make it a
+   transparent, drop-in replacement to SRTP processing.  Regular RTP
+   operation with double looks roughly like Figure 3:
+
+
+
+
+
+Grozev & Ivov           Expires January 16, 2018                [Page 3]
+
+Internet-Draft                 RTX double                      July 2017
+
+
+                     +---------------------------+
+                     |           SRTP            |
+    +------------+   | +---------+   +---------+ |    +------+
+    |    RTP     |-->| |   E2E   |-->|   HBH   | |--->| Wire |
+    | Packetizer |   | | Protect |   | Protect | |    |      |
+    +------------+   | +---------+   +---------+ |    +------+
+                     +---------------------------+
+
+
+                 Figure 3: SRTP and RTX: regular operation
+
+   Once RTX comes into play however, viewing all SRTP operations as a
+   single monolithic module becomes a problem.  If a PERC endpoint using
+   Double SRTP to operate as regular SRTP endpoints (that is, it caches
+   clear RTP packets, which it uses to generate RTX packets, that then
+   undergo all SRTP-related processing) RTX packets would end up being
+   end-to-end (E2E) encrypted.  Media Distributor (MD) would then not
+   have access to the RTX OSN field.  This would effectively prevent the
+   MD from terminating retransmissions.
+
+5.  RTX and SRTP Double
+
+   For the reasons outlined in Section 4 above, SRTP Double, requires
+   RTX to operate as a Hop By Hop (HBH) mechanism.  In order to achieve
+   this, RTX implementations in endpoints and MDs will cache E2E
+   encrypted packets before they undergo HBH encryption and treat that
+   E2E protected cache as the source of the payload they need to
+   retransmit when necessary.  Once an RTX packet is constructed out of
+   an E2E encrypted packet, it will undergo HBH encryption (just as it
+   would with standard SRTP [RFC3711] implementations).
+
+   Specifically, when an SRTP Double entity (be it an endpoint or an MD)
+   retransmits a packet using RTX it:
+
+   1.  Takes an E2E encrypted packet to be retransmitted.
+
    2.  Applies the RTX transformation (replaces the SSRC, payload type
-       and sequence number, and inserts the OSN field in the payload.
+       and sequence number, and inserts the OSN field in the payload).
 
    3.  Performs the HBH SRTP transformation.
 
-4.  RTP Padding
+   For an SRTP Double endpointthis transformation would roughly look
+   like this.
+
+
+
+
+
+
+
+
+Grozev & Ivov           Expires January 16, 2018                [Page 4]
+
+Internet-Draft                 RTX double                      July 2017
+
+
+    +------------+   +---------+                 +---------+    +------+
+    |    RTP     |-->|   E2E   |---------------->|   HBH   |--->| Wire |
+    | Packetizer |   | Protect |             +-->| Protect |    |      |
+    +------------+   +---------+             |   +---------+    +------+
+                       |                     |
+                       |                     |
+                       |  +-----------+   +-----+
+                       +->| Pkt Cache |-->| RTX |
+                          +-----------+   +-----+
+
+
+             Figure 4: RTX with and SRTP Double in an Endpoint
+
+   For an MD, on the other hand, PERC operation remains virtually
+   unchanged as compared to regular SRTP processing.  See Figure 5.
+
+
+    +-----------------+                      +---------+    +------+
+    |  MD Processing  |--------------------->|   HBH   |--->| Wire |
+    |  Packet Output  |                 +--->| Protect |    |      |
+    | (E2E Protected) |                 |    +---------+    +------+
+    +-----------------+                 |
+                 |                      |
+                 |                      |
+                 |  +-----------+    +-----+
+                 +->| Pkt Cache |--->| RTX |
+                    +-----------+    +-----+
+
+
+         Figure 5: RTX with and SRTP Double in a Media Distributor
+
+6.  Security Considerations
+
+7.  Acknowledgements
+
+8.  References
+
+8.1.  Normative References
+
+   [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
+              Requirement Levels", BCP 14, RFC 2119,
+              DOI 10.17487/RFC2119, March 1997,
+              <http://www.rfc-editor.org/info/rfc2119>.
+
+
+
+
+
+
+
+
+Grozev & Ivov           Expires January 16, 2018                [Page 5]
+
+Internet-Draft                 RTX double                      July 2017
+
+
+8.2.  Informative References
+
+   [I-D.ietf-avtext-framemarking]
+              Berger, E., Nandakumar, S., and M. Zanaty, "Frame Marking
+              RTP Header Extension", draft-ietf-avtext-framemarking-04
+              (work in progress), March 2017.
+
+   [I-D.ietf-perc-double]
+              Jennings, C., Jones, P., and A. Roach, "Frame Marking RTP
+              Header Extension", draft-ietf-perc-double-05 (work in
+              progress), June 2017.
+
+   [RFC3550]  Schulzrinne, H., Casner, S., Frederick, R., and V.
+              Jacobson, "RTP: A Transport Protocol for Real-Time
+              Applications", STD 64, RFC 3550, DOI 10.17487/RFC3550,
+              July 2003, <http://www.rfc-editor.org/info/rfc3550>.
+
+   [RFC3711]  Baugher, M., McGrew, D., Naslund, M., Carrara, E., and K.
+              Norrman, "The Secure Real-time Transport Protocol (SRTP)",
+              RFC 3711, DOI 10.17487/RFC3711, March 2004,
+              <http://www.rfc-editor.org/info/rfc3711>.
+
+   [RFC4588]  Rey, J., Leon, D., Miyazaki, A., Varsa, V., and R.
+              Hakenberg, "RTP Retransmission Payload Format", RFC 4588,
+              DOI 10.17487/RFC4588, July 2006,
+              <http://www.rfc-editor.org/info/rfc4588>.
+
+   [RFC7667]  Westerlund, M. and S. Wenger, "RTP Topologies", RFC 7667,
+              DOI 10.17487/RFC7667, November 2015,
+              <http://www.rfc-editor.org/info/rfc7667>.
+
+Appendix A.  RTP Padding
+
+   Originally this document also discussed potential PERC-related
+   problems when RTX is also used for probing in the context of
+   bandwidth estimation.  While the practice is somewhat widespred, from
+   an IETF perspective it is not considered as a "clean" approach to
+   probing, which is why the document no longer attempts to solve its
+   PERC-related issues.  The following section is hence only kept for
+   historical purposes.
 
    RFC3550 allows an RTP packet to contain only padding, and no payload.
    The number of padding bytes is contained in the last byte of the
@@ -128,6 +330,13 @@ Internet-Draft                 RTX double                      July 2017
    In the context of PERC, an MD does not have access to the padding
    length field of an RTX packet, and therefore it can not determine
    whether the packet contains non-padding payload or not.
+
+
+
+Grozev & Ivov           Expires January 16, 2018                [Page 6]
+
+Internet-Draft                 RTX double                      July 2017
+
 
    RTX packets with padding only are currently used by some bandwidth
    estimation algorithms when probing for additional bandwidth
@@ -162,14 +371,6 @@ Internet-Draft                 RTX double                      July 2017
    diagram below.
 
 
-
-
-
-Grozev & Ivov           Expires January 15, 2018                [Page 3]
-
-Internet-Draft                 RTX double                      July 2017
-
-
      0                   1
      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -177,41 +378,7 @@ Internet-Draft                 RTX double                      July 2017
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 
-                        Figure 1: Extension Format
-
-5.  Security Considerations
-
-6.  Acknowledgements
-
-7.  References
-
-7.1.  Normative References
-
-   [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
-              Requirement Levels", BCP 14, RFC 2119,
-              DOI 10.17487/RFC2119, March 1997,
-              <http://www.rfc-editor.org/info/rfc2119>.
-
-7.2.  Informative References
-
-   [I-D.ietf-avtext-framemarking]
-              Berger, E., Nandakumar, S., and M. Zanaty, "Frame Marking
-              RTP Header Extension", draft-ietf-avtext-framemarking-04
-              (work in progress), March 2017.
-
-   [RFC3550]  Schulzrinne, H., Casner, S., Frederick, R., and V.
-              Jacobson, "RTP: A Transport Protocol for Real-Time
-              Applications", STD 64, RFC 3550, DOI 10.17487/RFC3550,
-              July 2003, <http://www.rfc-editor.org/info/rfc3550>.
-
-   [RFC4588]  Rey, J., Leon, D., Miyazaki, A., Varsa, V., and R.
-              Hakenberg, "RTP Retransmission Payload Format", RFC 4588,
-              DOI 10.17487/RFC4588, July 2006,
-              <http://www.rfc-editor.org/info/rfc4588>.
-
-   [RFC7667]  Westerlund, M. and S. Wenger, "RTP Topologies", RFC 7667,
-              DOI 10.17487/RFC7667, November 2015,
-              <http://www.rfc-editor.org/info/rfc7667>.
+                        Figure 6: Extension Format
 
 Authors' Addresses
 
@@ -221,7 +388,8 @@ Authors' Addresses
 
 
 
-Grozev & Ivov           Expires January 15, 2018                [Page 4]
+
+Grozev & Ivov           Expires January 16, 2018                [Page 7]
 
 Internet-Draft                 RTX double                      July 2017
 
@@ -277,4 +445,4 @@ Internet-Draft                 RTX double                      July 2017
 
 
 
-Grozev & Ivov           Expires January 15, 2018                [Page 5]
+Grozev & Ivov           Expires January 16, 2018                [Page 8]
